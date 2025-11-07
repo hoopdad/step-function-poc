@@ -1,0 +1,352 @@
+{
+  "Comment": "Workflow for processing packages with Jira integration and parallel API calls",
+  "StartAt": "ReadInputFromS3",
+  "States": {
+    "ReadInputFromS3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:getObject",
+      "Parameters": {
+        "Bucket": "${workflow_bucket}",
+        "Key.$": "$.inputFile"
+      },
+      "ResultSelector": {
+        "content.$": "States.StringToJson($.Body)"
+      },
+      "ResultPath": "$.s3Result",
+      "Next": "PrepareWorkflowData",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "HandleS3ReadError"
+        }
+      ]
+    },
+    "PrepareWorkflowData": {
+      "Type": "Pass",
+      "Parameters": {
+        "executionId.$": "$$.Execution.Name",
+        "startTime.$": "$$.Execution.StartTime",
+        "jiraStoryId.$": "$.s3Result.content.jiraStoryId",
+        "packageIds.$": "$.s3Result.content.packageIds",
+        "inputFile.$": "$.inputFile"
+      },
+      "ResultPath": "$.workflowData",
+      "Next": "ParallelAPIProcessing"
+    },
+    "ParallelAPIProcessing": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "CallValidationAPI",
+          "States": {
+            "CallValidationAPI": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${mock_validation_lambda_arn}",
+                "Payload": {
+                  "jiraStoryId.$": "$.workflowData.jiraStoryId",
+                  "packageIds.$": "$.workflowData.packageIds",
+                  "action": "validate"
+                }
+              },
+              "ResultSelector": {
+                "statusCode.$": "$.Payload.statusCode",
+                "body.$": "$.Payload.body"
+              },
+              "ResultPath": "$.validationResult",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.validationError",
+                  "Next": "ValidationFailed"
+                }
+              ],
+              "Next": "CheckValidationResult"
+            },
+            "CheckValidationResult": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.validationResult.statusCode",
+                  "NumericEquals": 200,
+                  "Next": "ValidationSuccess"
+                }
+              ],
+              "Default": "ValidationFailed"
+            },
+            "ValidationSuccess": {
+              "Type": "Pass",
+              "Result": {
+                "status": "success",
+                "message": "Validation completed successfully"
+              },
+              "End": true
+            },
+            "ValidationFailed": {
+              "Type": "Fail",
+              "Error": "ValidationError",
+              "Cause": "Package validation failed"
+            }
+          }
+        },
+        {
+          "StartAt": "CallDeploymentAPI",
+          "States": {
+            "CallDeploymentAPI": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${mock_deployment_lambda_arn}",
+                "Payload": {
+                  "jiraStoryId.$": "$.workflowData.jiraStoryId",
+                  "packageIds.$": "$.workflowData.packageIds",
+                  "action": "deploy"
+                }
+              },
+              "ResultSelector": {
+                "statusCode.$": "$.Payload.statusCode",
+                "body.$": "$.Payload.body"
+              },
+              "ResultPath": "$.deploymentResult",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "IntervalSeconds": 3,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.deploymentError",
+                  "Next": "DeploymentFailed"
+                }
+              ],
+              "Next": "CheckDeploymentResult"
+            },
+            "CheckDeploymentResult": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.deploymentResult.statusCode",
+                  "NumericEquals": 200,
+                  "Next": "DeploymentSuccess"
+                }
+              ],
+              "Default": "DeploymentFailed"
+            },
+            "DeploymentSuccess": {
+              "Type": "Pass",
+              "Result": {
+                "status": "success",
+                "message": "Deployment completed successfully"
+              },
+              "End": true
+            },
+            "DeploymentFailed": {
+              "Type": "Fail",
+              "Error": "DeploymentError",
+              "Cause": "Package deployment failed"
+            }
+          }
+        },
+        {
+          "StartAt": "CallNotificationAPI",
+          "States": {
+            "CallNotificationAPI": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${mock_notification_lambda_arn}",
+                "Payload": {
+                  "jiraStoryId.$": "$.workflowData.jiraStoryId",
+                  "action": "notify",
+                  "message": "Workflow processing started"
+                }
+              },
+              "ResultSelector": {
+                "statusCode.$": "$.Payload.statusCode",
+                "body.$": "$.Payload.body"
+              },
+              "ResultPath": "$.notificationResult",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.notificationError",
+                  "Next": "NotificationWarning"
+                }
+              ],
+              "Next": "NotificationSuccess"
+            },
+            "NotificationSuccess": {
+              "Type": "Pass",
+              "Result": {
+                "status": "success",
+                "message": "Notification sent successfully"
+              },
+              "End": true
+            },
+            "NotificationWarning": {
+              "Type": "Pass",
+              "Result": {
+                "status": "warning",
+                "message": "Notification failed but continuing workflow"
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.parallelResults",
+      "Next": "StoreTaskTokenInDynamoDB",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.parallelError",
+          "Next": "HandleParallelError"
+        }
+      ]
+    },
+    "StoreTaskTokenInDynamoDB": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem.waitForTaskToken",
+      "Parameters": {
+        "TableName": "${dynamodb_table}",
+        "Item": {
+          "jiraStoryId": {
+            "S.$": "$.workflowData.jiraStoryId"
+          },
+          "taskToken": {
+            "S.$": "$$.Task.Token"
+          },
+          "executionArn": {
+            "S.$": "$$.Execution.Id"
+          },
+          "createdAt": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          "expirationTime": {
+            "N.$": "States.Format('{}', States.MathAdd(States.StringToJson(States.ArrayGetItem(States.StringSplit($$.State.EnteredTime, '.'), 0)), 86400))"
+          }
+        }
+      },
+      "ResultPath": "$.callbackResult",
+      "HeartbeatSeconds": 300,
+      "Next": "ProcessCallbackResult",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.callbackError",
+          "Next": "HandleCallbackError"
+        }
+      ]
+    },
+    "ProcessCallbackResult": {
+      "Type": "Pass",
+      "Parameters": {
+        "executionId.$": "$.workflowData.executionId",
+        "jiraStoryId.$": "$.workflowData.jiraStoryId",
+        "packageIds.$": "$.workflowData.packageIds",
+        "parallelResults.$": "$.parallelResults",
+        "callbackMessage.$": "$.callbackResult.message",
+        "callbackStatus.$": "$.callbackResult.status",
+        "completedAt.$": "$$.State.EnteredTime"
+      },
+      "ResultPath": "$.finalResult",
+      "Next": "WriteResultsToS3"
+    },
+    "WriteResultsToS3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:putObject",
+      "Parameters": {
+        "Bucket": "${workflow_bucket}",
+        "Key.$": "States.Format('outputs/{}/result.json', $.workflowData.executionId)",
+        "Body.$": "States.JsonToString($.finalResult)",
+        "ContentType": "application/json"
+      },
+      "ResultPath": "$.s3Output",
+      "Next": "WriteExecutionLogToS3"
+    },
+    "WriteExecutionLogToS3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:putObject",
+      "Parameters": {
+        "Bucket": "${workflow_bucket}",
+        "Key.$": "States.Format('logs/{}/execution.log', $.workflowData.executionId)",
+        "Body.$": "States.Format('Execution ID: {}\\nJira Story: {}\\nStart Time: {}\\nCompleted At: {}\\nStatus: SUCCESS\\nCallback Message: {}', $.workflowData.executionId, $.workflowData.jiraStoryId, $.workflowData.startTime, $.finalResult.completedAt, $.callbackResult.message)",
+        "ContentType": "text/plain"
+      },
+      "ResultPath": null,
+      "Next": "WorkflowComplete"
+    },
+    "WorkflowComplete": {
+      "Type": "Succeed"
+    },
+    "HandleS3ReadError": {
+      "Type": "Pass",
+      "Parameters": {
+        "error": "Failed to read input file from S3",
+        "cause.$": "$.error.Cause",
+        "inputFile.$": "$.inputFile"
+      },
+      "ResultPath": "$.errorDetails",
+      "Next": "WriteErrorToS3"
+    },
+    "HandleParallelError": {
+      "Type": "Pass",
+      "Parameters": {
+        "error": "One or more parallel API calls failed",
+        "cause.$": "$.parallelError",
+        "workflowData.$": "$.workflowData"
+      },
+      "ResultPath": "$.errorDetails",
+      "Next": "WriteErrorToS3"
+    },
+    "HandleCallbackError": {
+      "Type": "Pass",
+      "Parameters": {
+        "error": "Callback task failed or timed out",
+        "cause.$": "$.callbackError.Cause",
+        "workflowData.$": "$.workflowData"
+      },
+      "ResultPath": "$.errorDetails",
+      "Next": "WriteErrorToS3"
+    },
+    "WriteErrorToS3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:putObject",
+      "Parameters": {
+        "Bucket": "${workflow_bucket}",
+        "Key.$": "States.Format('logs/{}/error.json', $.workflowData.executionId)",
+        "Body.$": "States.JsonToString($.errorDetails)",
+        "ContentType": "application/json"
+      },
+      "ResultPath": null,
+      "Next": "WorkflowFailed"
+    },
+    "WorkflowFailed": {
+      "Type": "Fail",
+      "Error": "WorkflowExecutionFailed",
+      "Cause": "Workflow failed - check error logs in S3"
+    }
+  }
+}

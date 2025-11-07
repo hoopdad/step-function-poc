@@ -1,0 +1,45 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+.terraform.lock.hcl
+
+# Lambda builds
+builds/
+*.zip
+
+# Node modules
+node_modules/
+package-lock.json
+
+# Lambda layer packages
+lambda/*/node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Response files
+response-*.json
+
+# Environment variables
+.env
+.env.local
+
+# AWS credentials (never commit!)
+credentials
+config
+
+# Test outputs
+test-output/

@@ -1,0 +1,9 @@
+{
+  "name": "mock-api-validation",
+  "version": "1.0.0",
+  "description": "Mock validation API with bearer token authentication",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.0.0"
+  }
+}

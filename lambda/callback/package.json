@@ -1,0 +1,10 @@
+{
+  "name": "callback-lambda",
+  "version": "1.0.0",
+  "description": "Lambda function to handle Jira callbacks and update Step Functions",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-sfn": "^3.0.0"
+  }
+}

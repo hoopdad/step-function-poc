@@ -1,0 +1,13 @@
+{
+  "jiraStoryId": "PROJ-12345",
+  "packageIds": [
+    "pkg-001",
+    "pkg-002"
+  ],
+  "metadata": {
+    "environment": "production",
+    "requestedBy": "john.doe@example.com",
+    "priority": "high",
+    "notes": "Deployment for Q4 release"
+  }
+}
