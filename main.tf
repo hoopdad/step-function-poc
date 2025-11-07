@@ -167,6 +167,18 @@ data "archive_file" "callback_lambda" {
   output_path = "${path.module}/builds/callback.zip"
 }
 
+data "archive_file" "store_task_token_lambda" {
+  type        = "zip"
+  source_dir  = "${path.module}/lambda/store-task-token"
+  output_path = "${path.module}/builds/store-task-token.zip"
+}
+
+data "archive_file" "write_outputs_lambda" {
+  type        = "zip"
+  source_dir  = "${path.module}/lambda/write-outputs"
+  output_path = "${path.module}/builds/write-outputs.zip"
+}
+
 # Mock Validation API Lambda
 resource "aws_lambda_function" "mock_api_validation" {
   filename         = data.archive_file.mock_api_validation.output_path
@@ -254,6 +266,48 @@ resource "aws_lambda_function" "callback" {
   })
 }
 
+# Store Task Token Lambda
+resource "aws_lambda_function" "store_task_token" {
+  filename         = data.archive_file.store_task_token_lambda.output_path
+  function_name    = "${var.project_name}-${var.environment}-store-task-token"
+  role            = aws_iam_role.lambda_mock_api_role.arn
+  handler         = "index.handler"
+  source_code_hash = data.archive_file.store_task_token_lambda.output_base64sha256
+  runtime         = var.lambda_runtime
+  timeout         = 300
+
+  environment {
+    variables = {
+      DYNAMODB_TABLE = aws_dynamodb_table.task_token_mapping.name
+    }
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-${var.environment}-store-task-token"
+  })
+}
+
+# Write Outputs Lambda
+resource "aws_lambda_function" "write_outputs" {
+  filename         = data.archive_file.write_outputs_lambda.output_path
+  function_name    = "${var.project_name}-${var.environment}-write-outputs"
+  role            = aws_iam_role.lambda_mock_api_role.arn
+  handler         = "index.handler"
+  source_code_hash = data.archive_file.write_outputs_lambda.output_base64sha256
+  runtime         = var.lambda_runtime
+  timeout         = 30
+
+  environment {
+    variables = {
+      S3_BUCKET = aws_s3_bucket.workflow_bucket.id
+    }
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-${var.environment}-write-outputs"
+  })
+}
+
 # API Gateway for Callback Lambda
 resource "aws_apigatewayv2_api" "callback_api" {
   name          = "${var.project_name}-${var.environment}-callback-api"
@@ -332,6 +386,8 @@ resource "aws_sfn_state_machine" "workflow" {
     mock_validation_lambda_arn       = aws_lambda_function.mock_api_validation.arn
     mock_deployment_lambda_arn       = aws_lambda_function.mock_api_deployment.arn
     mock_notification_lambda_arn     = aws_lambda_function.mock_api_notification.arn
+    store_task_token_lambda_arn      = aws_lambda_function.store_task_token.arn
+    write_outputs_lambda_arn         = aws_lambda_function.write_outputs.arn
   })
 
   logging_configuration {

@@ -1,0 +1,9 @@
+{
+  "name": "write-outputs",
+  "version": "1.0.0",
+  "description": "Lambda function to write workflow outputs to S3",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0"
+  }
+}

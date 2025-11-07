@@ -57,6 +57,8 @@ cd lambda/callback && npm install > /dev/null 2>&1 && cd ../..
 cd lambda/mock-api-validation && npm install > /dev/null 2>&1 && cd ../..
 cd lambda/mock-api-deployment && npm install > /dev/null 2>&1 && cd ../..
 cd lambda/mock-api-notification && npm install > /dev/null 2>&1 && cd ../..
+cd lambda/store-task-token && npm install > /dev/null 2>&1 && cd ../..
+cd lambda/write-outputs && npm install > /dev/null 2>&1 && cd ../..
 print_info "Lambda dependencies installed!"
 echo ""
 

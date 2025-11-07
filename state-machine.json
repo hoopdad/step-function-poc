@@ -228,28 +228,18 @@
     },
     "StoreTaskTokenInDynamoDB": {
       "Type": "Task",
-      "Resource": "arn:aws:states:::dynamodb:putItem.waitForTaskToken",
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
       "Parameters": {
-        "TableName": "${dynamodb_table}",
-        "Item": {
-          "jiraStoryId": {
-            "S.$": "$.workflowData.jiraStoryId"
-          },
-          "taskToken": {
-            "S.$": "$$.Task.Token"
-          },
-          "executionArn": {
-            "S.$": "$$.Execution.Id"
-          },
-          "createdAt": {
-            "S.$": "$$.State.EnteredTime"
-          },
-          "expirationTime": {
-            "N.$": "States.Format('{}', States.MathAdd(States.StringToJson(States.ArrayGetItem(States.StringSplit($$.State.EnteredTime, '.'), 0)), 86400))"
-          }
+        "FunctionName": "${store_task_token_lambda_arn}",
+        "Payload": {
+          "jiraStoryId.$": "$.workflowData.jiraStoryId",
+          "taskToken.$": "$$.Task.Token",
+          "executionArn.$": "$$.Execution.Id",
+          "startTime.$": "$.workflowData.startTime"
         }
       },
       "ResultPath": "$.callbackResult",
+      "TimeoutSeconds": 86400,
       "HeartbeatSeconds": 300,
       "Next": "ProcessCallbackResult",
       "Catch": [
@@ -272,30 +262,21 @@
         "completedAt.$": "$$.State.EnteredTime"
       },
       "ResultPath": "$.finalResult",
-      "Next": "WriteResultsToS3"
+      "Next": "WriteOutputsToS3"
     },
-    "WriteResultsToS3": {
+    "WriteOutputsToS3": {
       "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:s3:putObject",
+      "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "Bucket": "${workflow_bucket}",
-        "Key.$": "States.Format('outputs/{}/result.json', $.workflowData.executionId)",
-        "Body.$": "States.JsonToString($.finalResult)",
-        "ContentType": "application/json"
+        "FunctionName": "${write_outputs_lambda_arn}",
+        "Payload": {
+          "executionId.$": "$.workflowData.executionId",
+          "finalResult.$": "$.finalResult",
+          "workflowData.$": "$.workflowData",
+          "callbackResult.$": "$.callbackResult"
+        }
       },
       "ResultPath": "$.s3Output",
-      "Next": "WriteExecutionLogToS3"
-    },
-    "WriteExecutionLogToS3": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:s3:putObject",
-      "Parameters": {
-        "Bucket": "${workflow_bucket}",
-        "Key.$": "States.Format('logs/{}/execution.log', $.workflowData.executionId)",
-        "Body.$": "States.Format('Execution ID: {}\\nJira Story: {}\\nStart Time: {}\\nCompleted At: {}\\nStatus: SUCCESS\\nCallback Message: {}', $.workflowData.executionId, $.workflowData.jiraStoryId, $.workflowData.startTime, $.finalResult.completedAt, $.callbackResult.message)",
-        "ContentType": "text/plain"
-      },
-      "ResultPath": null,
       "Next": "WorkflowComplete"
     },
     "WorkflowComplete": {
@@ -333,12 +314,14 @@
     },
     "WriteErrorToS3": {
       "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:s3:putObject",
+      "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "Bucket": "${workflow_bucket}",
-        "Key.$": "States.Format('logs/{}/error.json', $.workflowData.executionId)",
-        "Body.$": "States.JsonToString($.errorDetails)",
-        "ContentType": "application/json"
+        "FunctionName": "${write_outputs_lambda_arn}",
+        "Payload": {
+          "executionId.$": "$.workflowData.executionId",
+          "errorDetails.$": "$.errorDetails",
+          "isError": true
+        }
       },
       "ResultPath": null,
       "Next": "WorkflowFailed"

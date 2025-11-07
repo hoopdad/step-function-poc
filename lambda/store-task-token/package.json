@@ -1,0 +1,9 @@
+{
+  "name": "store-task-token",
+  "version": "1.0.0",
+  "description": "Lambda function to store task tokens in DynamoDB for Step Functions callback pattern",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0"
+  }
+}

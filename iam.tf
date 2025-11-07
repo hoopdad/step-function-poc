@@ -33,14 +33,15 @@ resource "aws_iam_role_policy" "stepfunctions_execution_policy" {
         Resource = [
           aws_lambda_function.mock_api_validation.arn,
           aws_lambda_function.mock_api_deployment.arn,
-          aws_lambda_function.mock_api_notification.arn
+          aws_lambda_function.mock_api_notification.arn,
+          aws_lambda_function.store_task_token.arn,
+          aws_lambda_function.write_outputs.arn
         ]
       },
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject",
-          "s3:PutObject"
+          "s3:GetObject"
         ]
         Resource = [
           "${aws_s3_bucket.workflow_bucket.arn}/*"
@@ -60,9 +61,17 @@ resource "aws_iam_role_policy" "stepfunctions_execution_policy" {
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
-          "logs:PutLogEvents"
+          "logs:PutLogEvents",
+          "logs:CreateLogDelivery",
+          "logs:GetLogDelivery",
+          "logs:UpdateLogDelivery",
+          "logs:DeleteLogDelivery",
+          "logs:ListLogDeliveries",
+          "logs:PutResourcePolicy",
+          "logs:DescribeResourcePolicies",
+          "logs:DescribeLogGroups"
         ]
-        Resource = "arn:aws:logs:${var.aws_region}:*:*"
+        Resource = "*"
       },
       {
         Effect = "Allow"
@@ -119,6 +128,13 @@ resource "aws_iam_role_policy" "lambda_mock_api_policy" {
           "secretsmanager:GetSecretValue"
         ]
         Resource = aws_secretsmanager_secret.mock_api_tokens.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem"
+        ]
+        Resource = aws_dynamodb_table.task_token_mapping.arn
       }
     ]
   })
