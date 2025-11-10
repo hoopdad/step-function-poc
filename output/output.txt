@@ -1,0 +1,201 @@
+
+========================================
+STEP FUNCTIONS POC DEMO
+========================================
+
+This demo will:
+  1. Start a Step Functions execution
+  2. Show logs from each Lambda as it executes
+  3. Pause at the callback step
+  4. Send the Jira callback
+  5. Show the callback Lambda logs
+  6. Display the final results
+
+Press Enter to start the demo...
+
+========================================
+STEP 1: Starting Workflow Execution
+========================================
+
+ℹ Uploading workflow input to S3...
+✓ Input uploaded
+ℹ Starting execution: demo-1762786856
+✓ Execution started!
+Execution ARN: arn:aws:states:us-east-1:704855531002:execution:stepfunctions-poc-dev-workflow:demo-1762786856
+
+⏳ Waiting 10 seconds for workflow to begin...
+
+========================================
+STEP 2: Parallel API Processing
+========================================
+
+ℹ Three Lambda functions are running in parallel...
+
+ℹ Fetching logs from Validation API Lambda...
+---
+2025-11-10T15:00:59 2025-11-10T15:00:59.521Z    102c59ec-66dc-4ea0-b046-a23106729299    INFO  Validating packages for Jira story: PROJ-12345
+2025-11-10T15:00:59 2025-11-10T15:00:59.521Z    102c59ec-66dc-4ea0-b046-a23106729299    INFO  Package IDs: pkg-001, pkg-002
+
+ℹ Fetching logs from Deployment API Lambda...
+---
+2025-11-10T15:00:59 2025-11-10T15:00:59.785Z    b8c18bca-61bf-41fe-a911-ce332d013e8d    INFO  Deploying packages for Jira story: PROJ-12345
+2025-11-10T15:00:59 2025-11-10T15:00:59.785Z    b8c18bca-61bf-41fe-a911-ce332d013e8d    INFO  Package IDs: pkg-001, pkg-002
+
+ℹ Fetching logs from Notification API Lambda...
+---
+2025-11-10T15:00:59 2025-11-10T15:00:59.624Z    aeee2d39-ca89-4076-bb3f-3c96b3aa3b67    INFO  Sending notification for Jira story: PROJ-12345
+2025-11-10T15:00:59 2025-11-10T15:00:59.624Z    aeee2d39-ca89-4076-bb3f-3c96b3aa3b67    INFO  Message: Workflow processing started
+
+✓ All parallel APIs completed!
+
+========================================
+STEP 3: Storing Task Token for Callback
+========================================
+
+ℹ Fetching logs from Store Task Token Lambda...
+---
+2025-11-10T15:01:05 2025-11-10T15:01:05.262Z    cbdd2350-bb2e-4803-925c-bcfbf2566f83    INFO  Task token stored for Jira story: PROJ-12345
+2025-11-10T15:01:05 2025-11-10T15:01:05.262Z    cbdd2350-bb2e-4803-925c-bcfbf2566f83    INFO  Waiting for callback from Jira...
+
+✓ Task token stored in DynamoDB
+ℹ Checking DynamoDB for task token...
+--------------------------------------------------------------------------------------------------------------------
+|                                                      GetItem                                                     |
++--------------+---------------------------------------------------------------------------------------------------+
+|  ExecutionArn|  arn:aws:states:us-east-1:704855531002:execution:stepfunctions-poc-dev-workflow:demo-1762786856   |
+|  JiraStory   |  PROJ-12345                                                                                       |
++--------------+---------------------------------------------------------------------------------------------------+
+
+⏳ Workflow is now PAUSED, waiting for Jira callback...
+
+Current workflow status:
+-------------------------------------------------
+|               DescribeExecution               |
++------------------------------------+----------+
+|              StartDate             | Status   |
++------------------------------------+----------+
+|  2025-11-10T10:00:58.636000-05:00  |  RUNNING |
++------------------------------------+----------+
+
+Press Enter to send the Jira callback and complete the workflow...
+
+========================================
+STEP 4: Sending Jira Callback
+========================================
+
+ℹ Simulating Jira Automation sending webhook...
+
+Callback URL: https://0z700woirh.execute-api.us-east-1.amazonaws.com/callback
+Jira Story ID: PROJ-12345
+
+Callback Response:
+{
+  "message": "Callback processed successfully",
+  "jiraStoryId": "PROJ-12345",
+  "executionArn": "arn:aws:states:us-east-1:704855531002:execution:stepfunctions-poc-dev-workflow:demo-1762786856",
+  "status": "success"
+}
+
+✓ Callback sent successfully!
+
+========================================
+STEP 5: Callback Lambda Execution
+========================================
+
+ℹ Fetching callback Lambda logs...
+---
+
+✓ Callback Lambda completed - workflow resumed!
+⏳ Waiting for workflow to complete...
+
+========================================
+STEP 6: Writing Results to S3
+========================================
+
+ℹ Fetching Write Outputs Lambda logs...
+---
+2025-11-10T15:01:37 2025-11-10T15:01:37.530Z    f65557a5-6199-4fb9-ac35-6645016153b8    INFO  Writing outputs to S3: {
+  "callbackResult": {
+  "finalResult": {
+    "parallelResults": [
+2025-11-10T15:01:38 2025-11-10T15:01:38.570Z    f65557a5-6199-4fb9-ac35-6645016153b8    INFO  Result written to s3://stepfunctions-poc-dev-workflow-704855531002/outputs/demo-1762786856/result.json
+2025-11-10T15:01:38 2025-11-10T15:01:38.631Z    f65557a5-6199-4fb9-ac35-6645016153b8    INFO  Log written to s3://stepfunctions-poc-dev-workflow-704855531002/logs/demo-1762786856/execution.log
+
+✓ Results written to S3!
+
+========================================
+STEP 7: Final Execution Status
+========================================
+
+ℹ Checking execution status...
+✓ Workflow completed successfully!
+---------------------------------------------------------------------------------------
+|                                  DescribeExecution                                  |
++-----------------------------------+------------+------------------------------------+
+|             StartDate             |  Status    |             StopDate               |
++-----------------------------------+------------+------------------------------------+
+|  2025-11-10T10:00:58.636000-05:00 |  SUCCEEDED |  2025-11-10T10:01:38.706000-05:00  |
++-----------------------------------+------------+------------------------------------+
+
+========================================
+STEP 8: Viewing Results
+========================================
+
+ℹ Fetching results from S3...
+
+Results:
+--------
+{
+  "executionId": "demo-1762786856",
+  "completedAt": "2025-11-10T15:01:36.641Z",
+  "callbackStatus": "success",
+  "jiraStoryId": "PROJ-12345",
+  "parallelResults": [
+    {
+      "status": "success",
+      "message": "Validation completed successfully"
+    },
+    {
+      "status": "success",
+      "message": "Deployment completed successfully"
+    },
+    {
+      "status": "success",
+      "message": "Notification sent successfully"
+    }
+  ],
+  "callbackMessage": "Story completed - Demo",
+  "packageIds": [
+    "pkg-001",
+    "pkg-002"
+  ]
+}
+
+ℹ Execution log:
+--------
+Execution ID: demo-1762786856
+Jira Story: PROJ-12345
+Start Time: 2025-11-10T15:00:58.636Z
+Completed At: 2025-11-10T15:01:36.641Z
+Status: SUCCESS
+Callback Message: Story completed - Demo
+
+
+========================================
+DEMO COMPLETE!
+========================================
+
+✓ Workflow executed successfully
+✓ All Lambda functions logged their execution
+✓ Callback pattern demonstrated
+✓ Results written to S3
+
+Key artifacts:
+  • Execution ARN: arn:aws:states:us-east-1:704855531002:execution:stepfunctions-poc-dev-workflow:demo-1762786856
+  • Results: s3://stepfunctions-poc-dev-workflow-704855531002/outputs/demo-1762786856/result.json
+  • Logs: s3://stepfunctions-poc-dev-workflow-704855531002/logs/demo-1762786856/execution.log
+
+View in AWS Console:
+  https://console.aws.amazon.com/states/home?region=us-east-1#/executions/details/arn:aws:states:us-east-1:704855531002:execution:stepfunctions-poc-dev-workflow:demo-1762786856
+
+✓ POC Demo Complete!

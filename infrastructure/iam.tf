@@ -135,6 +135,15 @@ resource "aws_iam_role_policy" "lambda_mock_api_policy" {
           "dynamodb:PutItem"
         ]
         Resource = aws_dynamodb_table.task_token_mapping.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject"
+        ]
+        Resource = [
+          "${aws_s3_bucket.workflow_bucket.arn}/*"
+        ]
       }
     ]
   })
