@@ -13,9 +13,9 @@ echo -e "${GREEN}========================================${NC}"
 echo ""
 
 # Get Lambda function names
-VALIDATION_LAMBDA=$(terraform output -raw mock_validation_lambda_arn | awk -F: '{print $NF}')
-DEPLOYMENT_LAMBDA=$(terraform output -raw mock_deployment_lambda_arn | awk -F: '{print $NF}')
-NOTIFICATION_LAMBDA=$(terraform output -raw mock_notification_lambda_arn | awk -F: '{print $NF}')
+VALIDATION_LAMBDA=$(terraform -chdir=infrastructure output -raw mock_validation_lambda_arn | awk -F: '{print $NF}')
+DEPLOYMENT_LAMBDA=$(terraform -chdir=infrastructure output -raw mock_deployment_lambda_arn | awk -F: '{print $NF}')
+NOTIFICATION_LAMBDA=$(terraform -chdir=infrastructure output -raw mock_notification_lambda_arn | awk -F: '{print $NF}')
 
 # Test payload
 TEST_PAYLOAD='{

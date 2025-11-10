@@ -93,8 +93,10 @@ exports.handler = async (event) => {
         console.log(`Deploying packages for Jira story: ${jiraStoryId}`);
         console.log(`Package IDs: ${packageIds.join(', ')}`);
 
-        // Simulate longer deployment process with random delay
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 3000 + 2000));
+        // Demo delay: Add random pause to allow viewing workflow in AWS Console
+        const demoDelay = Math.floor(Math.random() * 6000) + 10000; // 10-15 seconds
+        console.log(`Processing deployment (demo mode: ${demoDelay}ms delay)...`);
+        await new Promise(resolve => setTimeout(resolve, demoDelay));
 
         // Mock deployment results
         const deploymentResults = packageIds.map(pkgId => {

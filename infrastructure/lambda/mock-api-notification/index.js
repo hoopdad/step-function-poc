@@ -93,8 +93,10 @@ exports.handler = async (event) => {
         console.log(`Sending notification for Jira story: ${jiraStoryId}`);
         console.log(`Message: ${message}`);
 
-        // Simulate notification sending with random delay
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500));
+        // Demo delay: Add random pause to allow viewing workflow in AWS Console
+        const demoDelay = Math.floor(Math.random() * 6000) + 10000; // 10-15 seconds
+        console.log(`Processing notification (demo mode: ${demoDelay}ms delay)...`);
+        await new Promise(resolve => setTimeout(resolve, demoDelay));
 
         // Mock notification channels
         const channels = ['email', 'slack', 'teams'];

@@ -64,11 +64,11 @@ echo ""
 
 # Initialize and apply Terraform
 print_info "Initializing Terraform..."
-terraform init
+terraform -chdir=infrastructure init
 
 echo ""
 print_info "Planning Terraform deployment..."
-terraform plan -out=tfplan
+terraform -chdir=infrastructure plan -out=tfplan
 
 echo ""
 read -p "Do you want to apply this Terraform plan? (yes/no): " confirm
@@ -79,8 +79,8 @@ fi
 
 echo ""
 print_info "Applying Terraform configuration..."
-terraform apply tfplan
-rm tfplan
+terraform -chdir=infrastructure apply tfplan
+rm infrastructure/tfplan
 
 echo ""
 print_info "Deployment complete!"
@@ -88,10 +88,10 @@ echo ""
 
 # Get outputs
 print_info "Retrieving outputs..."
-BUCKET_NAME=$(terraform output -raw s3_bucket_name)
-STATE_MACHINE_ARN=$(terraform output -raw state_machine_arn)
-CALLBACK_URL=$(terraform output -raw callback_api_endpoint)
-USER_ROLE_ARN=$(terraform output -raw stepfunctions_user_role_arn)
+BUCKET_NAME=$(terraform -chdir=infrastructure output -raw s3_bucket_name)
+STATE_MACHINE_ARN=$(terraform -chdir=infrastructure output -raw state_machine_arn)
+CALLBACK_URL=$(terraform -chdir=infrastructure output -raw callback_api_endpoint)
+USER_ROLE_ARN=$(terraform -chdir=infrastructure output -raw stepfunctions_user_role_arn)
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
@@ -116,7 +116,7 @@ print_info "Creating helper scripts..."
 # Start execution script
 cat > start-execution.sh << 'EOF'
 #!/bin/bash
-STATE_MACHINE_ARN=$(terraform output -raw state_machine_arn)
+STATE_MACHINE_ARN=$(terraform -chdir=infrastructure output -raw state_machine_arn)
 EXECUTION_NAME="execution-$(date +%s)"
 
 echo "Starting Step Functions execution..."
@@ -141,7 +141,7 @@ chmod +x start-execution.sh
 # Send callback script
 cat > send-callback.sh << 'EOF'
 #!/bin/bash
-CALLBACK_URL=$(terraform output -raw callback_api_endpoint)
+CALLBACK_URL=$(terraform -chdir=infrastructure output -raw callback_api_endpoint)
 
 if [ -z "$1" ]; then
     echo "Usage: ./send-callback.sh <JIRA_STORY_ID> [message] [status]"
@@ -178,7 +178,7 @@ chmod +x send-callback.sh
 # View results script
 cat > view-results.sh << 'EOF'
 #!/bin/bash
-BUCKET_NAME=$(terraform output -raw s3_bucket_name)
+BUCKET_NAME=$(terraform -chdir=infrastructure output -raw s3_bucket_name)
 
 if [ -z "$1" ]; then
     echo "Usage: ./view-results.sh <EXECUTION_ID>"

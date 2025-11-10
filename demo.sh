@@ -37,9 +37,9 @@ print_wait() {
 }
 
 # Get Terraform outputs
-STATE_MACHINE_ARN=$(terraform output -raw state_machine_arn 2>/dev/null)
-BUCKET_NAME=$(terraform output -raw s3_bucket_name 2>/dev/null)
-CALLBACK_URL=$(terraform output -raw callback_api_endpoint 2>/dev/null)
+STATE_MACHINE_ARN=$(terraform -chdir=infrastructure output -raw state_machine_arn 2>/dev/null)
+BUCKET_NAME=$(terraform -chdir=infrastructure output -raw s3_bucket_name 2>/dev/null)
+CALLBACK_URL=$(terraform -chdir=infrastructure output -raw callback_api_endpoint 2>/dev/null)
 
 if [ -z "$STATE_MACHINE_ARN" ]; then
     echo "Error: Could not get Terraform outputs. Run 'terraform apply' first."
@@ -59,6 +59,13 @@ read -p "Press Enter to start the demo..."
 
 # Step 1: Upload input and start execution
 print_header "STEP 1: Starting Workflow Execution"
+print_info "Viewing workflow input file..."
+echo ""
+echo "Input File (workflow-input.json):"
+echo "---"
+cat workflow-input.json | jq '.'
+echo ""
+
 print_info "Uploading workflow input to S3..."
 aws s3 cp workflow-input.json s3://$BUCKET_NAME/inputs/workflow-input.json > /dev/null 2>&1
 print_success "Input uploaded"
@@ -76,8 +83,22 @@ EXECUTION_ARN=$(aws stepfunctions start-execution \
 print_success "Execution started!"
 echo "Execution ARN: $EXECUTION_ARN"
 echo ""
-print_wait "Waiting 10 seconds for workflow to begin..."
-sleep 10
+echo -e "${YELLOW}========================================${NC}"
+echo -e "${YELLOW}⏸️  OPEN THIS URL NOW!${NC}"
+echo -e "${YELLOW}========================================${NC}"
+echo ""
+echo "https://console.aws.amazon.com/states/home?region=us-east-1#/executions/details/$EXECUTION_ARN"
+echo ""
+echo -e "${YELLOW}Open the link above to watch the workflow execute in real-time!${NC}"
+echo -e "${YELLOW}You'll see the parallel branches running...${NC}"
+echo ""
+print_wait "Waiting 10 seconds for you to open the console..."
+for i in {10..1}; do
+    echo -ne "\r${YELLOW}⏳ Opening console in $i seconds... ${NC}"
+    sleep 1
+done
+echo -e "\r${GREEN}✓ Continuing demo...                    ${NC}"
+echo ""
 
 # Step 2: Show parallel Lambda executions
 print_header "STEP 2: Parallel API Processing"

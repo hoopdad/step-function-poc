@@ -93,8 +93,10 @@ exports.handler = async (event) => {
         console.log(`Validating packages for Jira story: ${jiraStoryId}`);
         console.log(`Package IDs: ${packageIds.join(', ')}`);
 
-        // Simulate validation logic with random delay
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 1000));
+        // Demo delay: Add random pause to allow viewing workflow in AWS Console
+        const demoDelay = Math.floor(Math.random() * 6000) + 10000; // 10-15 seconds
+        console.log(`Processing validation (demo mode: ${demoDelay}ms delay)...`);
+        await new Promise(resolve => setTimeout(resolve, demoDelay));
 
         // Mock validation results
         const validationResults = packageIds.map(pkgId => {
